@@ -1,20 +1,22 @@
 from krita import *
 from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 
 
 DOCKER_NAME = 'CoolBox'
 DOCKER_ID = 'pyKrita_CoolBox'
 
-backColor = QColor(49, 49, 49)
-highlightColor = QColor(86, 128, 194)
+backColor = QColor(0, 0, 0, 0)
+highlightColor = QColor(50, 50, 50)
 
 class Tool:
 
-    def __init__(self, name, icon):
+    def __init__(self, name, icon, action):
         self.name = name
         self.icon = icon
         self.subTools = []
         self.isActivated = False
+        self.action = action
         pass
 
     def addSubTool(self, tool):
@@ -39,6 +41,13 @@ class Tool:
 
     def activate(self, clicked):
         self.isActivated = clicked
+
+        if not clicked:
+            return
+        
+        ac = Application.action(self.action)
+        if ac:
+            ac.trigger() 
     
     def contains(self, pos):
         return self.toolRect.contains(pos)
@@ -48,6 +57,10 @@ class ToolBox(QWidget):
     def __init__(self):
         super().__init__()
         self.tools = []
+        self.timer = QTimer()
+        self.timer.setInterval(500)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.longPressed)
         pass
     
     def addTool(self, tool):
@@ -66,15 +79,24 @@ class ToolBox(QWidget):
             drawRect = QRect(topLeft, size)
             tool.paint(painter, drawRect)
             topLeft += QPoint(0, 45)
-        self.setFixedSize(50, 45 * len(self.tools))
-        pass
+        self.setFixedSize(50, 45 * len(self.tools) + 5)
 
     def mousePressEvent(self, event):
-        if event.button() is not Qt.LeftButton :
+        if event.button() != Qt.LeftButton :
             return
-        
+
         for tool in self.tools:
             tool.activate(tool.contains(event.pos()))
+            self.update()
+        self.timer.start()
+
+    def mouseReleaseEvent(self, event):
+        self.timer.stop()
+    
+    def longPressed(self):
+        pass
+
+    
 
 
 class CoolBox(DockWidget):
@@ -83,18 +105,20 @@ class CoolBox(DockWidget):
         super().__init__()
         self.setWindowTitle(DOCKER_NAME)
         toolBox = ToolBox()
-        toolBox.addTool(Tool("Transform Tool", "krita_tool_transform"))
-        toolBox.addTool(Tool( "Outline Selection", "tool_outline_selection"))
-        toolBox.addTool(Tool("Similar Selection", "tool_similar_selection"))
-        toolBox.addTool(Tool("Crop Tool", "tool_crop"))
-        toolBox.addTool(Tool("Fill Tool", "krita_tool_color_fill"))
-        toolBox.addTool(Tool("Freehand Brush", "krita_tool_freehand"))
-        toolBox.addTool(Tool("Rectangle Tool", "krita_tool_rectangle"))
-        toolBox.addTool(Tool("Text Tool", "draw-text"))
-        toolBox.addTool(Tool("Select Shape", "select"))
-        toolBox.addTool(Tool("Assistant Tool", "krita_tool_assistant",))
-        toolBox.addTool(Tool("Rectangular Selection", "tool_rect_selection"))
-        toolBox.addTool(Tool("Zoom", "tool_zoom"))
+
+        toolBox.addTool(Tool("Transform Tool", "krita_tool_transform", "KisToolTransform"))
+        toolBox.addTool(Tool("Outline Selection", "tool_outline_selection", "KisToolSelectOutline"))
+        toolBox.addTool(Tool("Rectangular Selection", "tool_rect_selection", "KisToolSelectRectangular"))
+        toolBox.addTool(Tool("Similar Selection", "tool_similar_selection", "KisToolSelectSimilar"))
+        toolBox.addTool(Tool("Crop Tool", "tool_crop", "KisToolCrop"))
+        toolBox.addTool(Tool("Fill Tool", "krita_tool_color_fill", "KritaFill/KisToolFill"))
+        toolBox.addTool(Tool("Freehand Brush", "krita_tool_freehand", "KritaShape/KisToolBrush"))
+        toolBox.addTool(Tool("Rectangle Tool", "krita_tool_rectangle", "KritaShape/KisToolRectangle"))
+        toolBox.addTool(Tool("Text Tool", "draw-text", "SvgTextTool"))
+        toolBox.addTool(Tool("Select Shape", "select", "InteractionTool"))
+        toolBox.addTool(Tool("Assistant Tool", "krita_tool_assistant", "KisAssistantTool"))
+        toolBox.addTool(Tool("Zoom", "tool_zoom", "ZoomTool"))
+
         self.setWidget(toolBox)
 
     def canvasChanged(self, canvas):
