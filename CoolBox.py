@@ -7,7 +7,7 @@ DOCKER_NAME = 'CoolBox'
 DOCKER_ID = 'pyKrita_CoolBox'
 
 backColor = QColor(0, 0, 0, 0)
-highlightColor = QColor(50, 50, 50)
+highlightColor = QColor(40, 40, 40)
 
 class Tool:
 
@@ -120,6 +120,7 @@ class CoolBox(DockWidget):
         toolBox.addTool(Tool("Zoom", "tool_zoom", "ZoomTool"))
 
         self.setWidget(toolBox)
+        self.setTitleBarWidget(QWidget())
 
     def canvasChanged(self, canvas):
         pass
