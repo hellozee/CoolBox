@@ -18,6 +18,7 @@ class Tool:
         self.isActivated = False
         self.action = action
         self.highlighted = False
+        self.toolRect = QRect()
         pass
 
     def addSubTool(self, tool):
@@ -28,6 +29,11 @@ class Tool:
             return
         self.name, self.subTools[index].name = self.subTools[index].name, self.name
         self.icon, self.subTools[index].icon = self.subTools[index].icon, self.icon
+        self.action, self.subTools[index].action = self.subTools[index].action, self.action
+        ac = Application.action(self.action)
+        if ac:
+            ac.trigger()
+        
     
     def paint(self, painter, rect):
         self.toolRect = rect
@@ -38,6 +44,13 @@ class Tool:
         newRect = rect.adjusted(10, 10, -10, -10)
         icon = Application.icon(self.icon)
         painter.drawPixmap(newRect, icon.pixmap(newRect.size()))
+
+        if len(self.subTools) > 0 :
+            triangle = QPainterPath()
+            triangle.moveTo(rect.bottomRight())
+            triangle.lineTo(rect.bottomRight() + QPoint(0, -5))
+            triangle.lineTo(rect.bottomRight() + QPoint(-5, 0))
+            painter.fillPath(triangle, Qt.white)
         pass
 
     def activate(self, clicked):
@@ -58,11 +71,11 @@ class Tool:
 
 class Popup(QWidget):
     
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setWindowFlags(Qt.ToolTip)
+    def __init__(self):
+        super().__init__()
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         self.tool = Tool("", "", "")
+        QCoreApplication.instance().installEventFilter(self);
     
     def setTool(self, tool):
         self.tool = tool
@@ -101,6 +114,25 @@ class Popup(QWidget):
             tool.setHighlighted(tool.contains(event.pos()))
         self.update()
 
+    def mouseReleaseEvent(self, event):
+        i = 0
+        for tool in self.tool.subTools:
+            if tool.contains(event.pos()):
+                self.tool.swapTool(i)
+            i += 1
+
+        self.close()
+        pass
+
+    def show(self):
+        self.grabMouse()
+        super().show()
+    
+    def close(self):
+        self.releaseMouse()
+        super().close()
+
+
 class ToolBox(QWidget):
 
     def __init__(self):
@@ -110,7 +142,7 @@ class ToolBox(QWidget):
         self.timer.setInterval(1000)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.longPressed)
-        self.popup = Popup(self)
+        self.popup = Popup()
         self.setMouseTracking(True)
         pass
     
@@ -143,11 +175,10 @@ class ToolBox(QWidget):
                 self.update()
                 self.timer.start()
                 self.currentTool = tool
-                self.popup.move(self.mapToGlobal(tool.toolRect.topRight()))
+                self.popup.move(self.mapTo(Application.activeWindow().qwindow(), tool.toolRect.topRight()))
                 break
 
     def mouseReleaseEvent(self, event):
-        self.popup.close()
         self.timer.stop()
 
     def mouseMoveEvent(self, event):
@@ -162,6 +193,7 @@ class ToolBox(QWidget):
     
     def longPressed(self):
         self.popup.setTool(self.currentTool)
+        self.popup.setParent(Application.activeWindow().qwindow())
         self.popup.show()
         pass
     
@@ -176,26 +208,68 @@ class CoolBox(DockWidget):
         self.setWindowTitle(DOCKER_NAME)
         toolBox = ToolBox()
 
-        transform = Tool("Transform Tool", "krita_tool_transform", "KisToolTransform")
-        transform.addSubTool(Tool("Transform Tool", "krita_tool_transform", "KisToolTransform"))
-        transform.addSubTool(Tool("Transform Tool", "krita_tool_transform", "KisToolTransform"))
+        transformTool = Tool("Transform Tool", "krita_tool_transform", "KisToolTransform")
+        transformTool.addSubTool(Tool("Move Tool", "krita_tool_move", "KritaTransform/KisToolMove"))
+        toolBox.addTool(transformTool)
 
-        toolBox.addTool(transform)
+        outlineSelect = Tool("Outline Selection", "tool_outline_selection", "KisToolSelectOutline")
+        outlineSelect.addSubTool(Tool("Polygonal Selection", "tool_polygonal_selection", "KisToolSelectPolygonal"))
+        outlineSelect.addSubTool(Tool("Bezier Selection", "tool_path_selection","KisToolSelectPath"))
+        outlineSelect.addSubTool(Tool("Magnetic Selection", "tool_magnetic_selection","KisToolSelectMagnetic"))
+        toolBox.addTool(outlineSelect)
 
-        toolBox.addTool(Tool("Outline Selection", "tool_outline_selection", "KisToolSelectOutline"))
-        toolBox.addTool(Tool("Rectangular Selection", "tool_rect_selection", "KisToolSelectRectangular"))
-        toolBox.addTool(Tool("Similar Selection", "tool_similar_selection", "KisToolSelectSimilar"))
-        toolBox.addTool(Tool("Crop Tool", "tool_crop", "KisToolCrop"))
-        toolBox.addTool(Tool("Fill Tool", "krita_tool_color_fill", "KritaFill/KisToolFill"))
-        toolBox.addTool(Tool("Freehand Brush", "krita_tool_freehand", "KritaShape/KisToolBrush"))
-        toolBox.addTool(Tool("Rectangle Tool", "krita_tool_rectangle", "KritaShape/KisToolRectangle"))
-        toolBox.addTool(Tool("Text Tool", "draw-text", "SvgTextTool"))
-        toolBox.addTool(Tool("Select Shape", "select", "InteractionTool"))
-        toolBox.addTool(Tool("Assistant Tool", "krita_tool_assistant", "KisAssistantTool"))
-        toolBox.addTool(Tool("Zoom", "tool_zoom", "ZoomTool"))
+        rectSelect = Tool("Rectangular Selection", "tool_rect_selection", "KisToolSelectRectangular")
+        rectSelect.addSubTool(Tool("Elliptical Selection", "tool_elliptical_selection", "KisToolSelectElliptical"))
+        toolBox.addTool(rectSelect)
+
+        similarSelect = Tool("Similar Selection", "tool_similar_selection", "KisToolSelectSimilar")
+        similarSelect.addSubTool(Tool("Contiguous Selection", "tool_contiguous_selection", "KisToolSelectContiguous"))
+        toolBox.addTool(similarSelect)
+
+        cropTool = Tool("Crop Tool", "tool_crop", "KisToolCrop")
+        toolBox.addTool(cropTool)
+
+        fillTool = Tool("Fill Tool", "krita_tool_color_fill", "KritaFill/KisToolFill")
+        fillTool.addSubTool(Tool("Color Picker", "krita_tool_color_picker", "KritaSelected/KisToolColorPicker"))
+        fillTool.addSubTool(Tool("Smart Patch Tool", "krita_tool_smart_patch", "KritaShape/KisToolSmartPatch"))
+        fillTool.addSubTool(Tool("Gradient Tool", "krita_tool_gradient", "KritaFill/KisToolGradient"))
+        toolBox.addTool(fillTool)
+        
+        brushTool = Tool("Freehand Brush", "krita_tool_freehand", "KritaShape/KisToolBrush")
+        brushTool.addSubTool(Tool( "Dynamic Brush", "krita_tool_dyna", "KritaShape/KisToolDyna"))
+        brushTool.addSubTool(Tool( "Colorize Brush", "krita_tool_lazybrush", "KritaShape/KisToolLazyBrush"))
+        brushTool.addSubTool(Tool("Multibrush", "krita_tool_multihand", "KritaShape/KisToolMultiBrush"))
+        toolBox.addTool(brushTool)
+
+        rectTool = Tool("Rectangle Tool", "krita_tool_rectangle", "KritaShape/KisToolRectangle")
+        rectTool.addSubTool(Tool("Line Tool", "krita_tool_line", "KritaShape/KisToolLine"))
+        rectTool.addSubTool(Tool("Ellipse Tool", "krita_tool_ellipse", "KritaShape/KisToolEllipse"))
+        rectTool.addSubTool(Tool("Polygon Tool", "krita_tool_polygon", "KisToolPolygon"))
+        rectTool.addSubTool(Tool("Polyline Tool", "polyline", "KisToolPolyline"))
+        rectTool.addSubTool(Tool("Bezier Tool", "krita_draw_path","KisToolPath"))
+        rectTool.addSubTool(Tool("Freehand Path", "krita_tool_freehandvector", "KisToolPencil"))
+        toolBox.addTool(rectTool)
+
+        textTool = Tool("Text Tool", "draw-text", "SvgTextTool")
+        toolBox.addTool(textTool)
+
+        shapeSelectTool = Tool("Select Shape", "select", "InteractionTool")
+        shapeSelectTool.addSubTool(Tool("Edit Shape Tool", "shape_handling", "PathTool"))
+        shapeSelectTool.addSubTool(Tool("Calligraphy", "calligraphy", "KarbonCalligraphyTool"))
+        toolBox.addTool(shapeSelectTool)
+
+        assitantTool = Tool("Assistant Tool", "krita_tool_assistant", "KisAssistantTool")
+        assitantTool.addSubTool(Tool("Reference Image Tool", "krita_tool_reference_images","ToolReferenceImages"))
+        assitantTool.addSubTool(Tool("Measure Tool", "krita_tool_measure", "KritaShape/KisToolMeasure"))
+        toolBox.addTool(assitantTool)
+
+        zoomTool = Tool("Zoom", "tool_zoom", "ZoomTool")
+        zoomTool.addSubTool(Tool("Pan", "tool_pan", "PanTool"))
+        toolBox.addTool(zoomTool)
 
         self.setWidget(toolBox)
         self.setTitleBarWidget(QWidget())
+        self.toolBox = toolBox
 
     def canvasChanged(self, canvas):
         pass
