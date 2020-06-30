@@ -2,7 +2,6 @@ from krita import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
-
 DOCKER_NAME = 'CoolBox'
 DOCKER_ID = 'pyKrita_CoolBox'
 
@@ -34,7 +33,6 @@ class Tool:
         if ac:
             ac.trigger()
         
-    
     def paint(self, painter, rect):
         self.toolRect = rect
         path = QPainterPath()
@@ -51,17 +49,17 @@ class Tool:
             triangle.lineTo(rect.bottomRight() + QPoint(0, -5))
             triangle.lineTo(rect.bottomRight() + QPoint(-5, 0))
             painter.fillPath(triangle, Qt.white)
-        pass
 
     def activate(self, clicked):
         self.isActivated = clicked
         self.highlighted = False
+
         if not clicked:
             return
-        
+
         ac = Application.action(self.action)
         if ac:
-            ac.trigger() 
+            ac.trigger()
     
     def contains(self, pos):
         return self.toolRect.contains(pos)
@@ -75,7 +73,6 @@ class Popup(QWidget):
         super().__init__()
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
         self.tool = Tool("", "", "")
-        QCoreApplication.instance().installEventFilter(self);
     
     def setTool(self, tool):
         self.tool = tool
@@ -91,7 +88,6 @@ class Popup(QWidget):
         painter.begin(self)
         
         # draw the triangle
-
         triangle = QPainterPath()
         startPoint = event.rect().topLeft() + QPoint(0, 20)
         triangle.moveTo(startPoint)
@@ -193,7 +189,6 @@ class ToolBox(QWidget):
     
     def longPressed(self):
         self.popup.setTool(self.currentTool)
-        self.popup.setParent(Application.activeWindow().qwindow())
         self.popup.show()
         pass
     
@@ -270,9 +265,17 @@ class CoolBox(DockWidget):
         self.setWidget(toolBox)
         self.setTitleBarWidget(QWidget())
         self.toolBox = toolBox
+        self.toolBox.setEnabled(False)
+        self.firstTurn = True
 
     def canvasChanged(self, canvas):
-        pass
+        # hacky workaround but works
+        if not self.firstTurn :
+            self.toolBox.setEnabled(canvas is not None)
+            self.toolBox.popup.setParent(Application.activeWindow().qwindow())
+            return
+        
+        self.firstTurn = False
 
 instance = Krita.instance()
 dock_widget_factory = DockWidgetFactory(DOCKER_ID, 
