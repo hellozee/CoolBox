@@ -8,7 +8,13 @@ DOCKER_ID = 'pyKrita_CoolBox'
 backColor = QColor(49, 49, 49)
 highlightColor = QColor(86, 128, 194)
 
+
 class Tool:
+
+    """
+    Just a container class for tools, which also draws the tool icons itself, don't
+    need to be a QObject to do qt stuff, we just need the qpainter
+    """
 
     def __init__(self, name, icon, action):
         self.name = name
@@ -23,6 +29,10 @@ class Tool:
     def addSubTool(self, tool):
         self.subTools.append(tool)
 
+    """
+    When a subtool is activated the attributes are just swapped in, no complex hierarchy
+    changes
+    """
     def swapTool(self, index):
         if len(self.subTools) <= 0 :
             return
@@ -120,6 +130,10 @@ class Popup(QWidget):
         self.close()
         pass
 
+    """
+    Not many people like it but it is what it is, qt just won't pass the mouse events
+    so have to forcefully grab it, though it is released on close
+    """
     def show(self):
         self.grabMouse()
         super().show()
